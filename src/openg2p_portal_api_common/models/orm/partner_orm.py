@@ -3,7 +3,6 @@ from typing import List, Optional
 
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.models import BaseORMModel, BaseORMModelWithId
-from openg2p_social_registry_portal_api.models.orm.g2p_group_kind_orm import G2PGroupKindORM
 from sqlalchemy import (
     Boolean,
     Date,
@@ -41,10 +40,9 @@ class PartnerORM(BaseORMModelWithId):
     type: Mapped[str] = mapped_column(String(), default="contact")
     is_registrant: Mapped[bool] = mapped_column(Boolean(), default=True)
     is_group: Mapped[bool] = mapped_column(Boolean(), default=False)
-    kind: Mapped[int]=mapped_column()
+    kind: Mapped[int] = mapped_column()
     # kind: Mapped[int]= mapped_column(ForeignKey("g2p_group_kind.id"))
     # group_kind: Mapped[Optional[list[G2PGroupKindORM]]]=relationship(back_populates="partner_group_kind")
-
 
     @classmethod
     async def get_partner_data(cls, id: int):

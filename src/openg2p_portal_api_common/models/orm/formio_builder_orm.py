@@ -1,6 +1,6 @@
 from openg2p_fastapi_common.models import BaseORMModel
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class FormORM(BaseORMModel):

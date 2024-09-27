@@ -9,14 +9,18 @@ _config = Settings.get_config()
 from openg2p_fastapi_common.app import Initializer
 
 from .controllers.auth_controller import AuthController
+
 # from .controllers.discovery_controller import DiscoveryController
 # from .controllers.form_controller import FormController
 from .controllers.oauth_controller import OAuthController
+
 # from .controllers.program_controller import ProgramController
 from .models.orm.program_registrant_info_orm import ProgramRegistrantInfoDraftORM
+
 # from .services.form_service import FormService
 from .services.membership_service import MembershipService
 from .services.partner_service import PartnerService
+
 # from .services.program_service import ProgramService
 
 

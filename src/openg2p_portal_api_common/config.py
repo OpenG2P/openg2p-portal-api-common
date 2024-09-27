@@ -1,6 +1,5 @@
 from typing import Optional
 
-from openg2p_fastapi_auth.config import ApiAuthSettings
 from openg2p_fastapi_auth.config import Settings as AuthSettings
 from openg2p_fastapi_common.config import Settings
 from pydantic_settings import SettingsConfigDict
