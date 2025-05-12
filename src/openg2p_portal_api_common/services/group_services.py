@@ -160,12 +160,10 @@ class GroupService(BaseService):
                 kind_objects = kind_records.scalars().all()
                 if kind_objects:
                     await session.run_sync(
-                        lambda m=group_membership, k=kind_objects: m.
-                        group_membership_kind.extend(
-                            k
+                        lambda session: (
+                            group_membership.group_membership_kind.extend(kind_objects)
                         )
                     )
-
             await session.commit()
             await session.refresh(new_member)
 

@@ -17,6 +17,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .reg_id_orm import RegIDORM
 
+from ..orm.g2p_group_kind_orm import G2PGroupKindORM
+from ..orm.g2p_group_membership_orm import G2PGroupMembershipORM
+
 
 class PartnerORM(BaseORMModelWithId):
     __tablename__ = "res_partner"
@@ -41,6 +44,25 @@ class PartnerORM(BaseORMModelWithId):
     is_registrant: Mapped[bool] = mapped_column(Boolean(), default=True)
     is_group: Mapped[bool] = mapped_column(Boolean(), default=False)
     active: Mapped[bool] = mapped_column(Boolean(), default=True)
+
+    kind: Mapped[int] = mapped_column(ForeignKey("g2p_group_kind.id"), nullable=True)
+    group_kind: Mapped[list["G2PGroupKindORM"]] = relationship(
+        "G2PGroupKindORM", back_populates="partners"
+    )
+
+    group_memberships: Mapped[list["G2PGroupMembershipORM"]] = relationship(
+        "G2PGroupMembershipORM",
+        foreign_keys=[G2PGroupMembershipORM.group],
+        back_populates="group_partner",
+        cascade="all, delete-orphan",
+    )
+
+    individual_group_memberships: Mapped[list["G2PGroupMembershipORM"]] = relationship(
+        "G2PGroupMembershipORM",
+        foreign_keys=[G2PGroupMembershipORM.individual],
+        back_populates="individual_partner",
+        cascade="all, delete-orphan",
+    )
 
     @classmethod
     async def get_partner_data(cls, id: int):

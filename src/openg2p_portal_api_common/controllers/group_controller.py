@@ -86,11 +86,11 @@ class GroupController(AuthController):
         id: int,
         group_member: GroupMember,
         auth: Annotated[AuthCredentials, Depends(JwtBearerAuth())],
-    ) -> GroupMember:
+    ) -> Optional[GroupMember]:
         if not auth.partner_id:
             raise UnauthorizedError("Unauthorized. Partner Not Found in Registry.")
 
         group_meber = await self.group_service.add_member_to_group(
-            group_id=id, group_member=group_member
+            group_id=id, member=group_member
         )
         return group_meber
