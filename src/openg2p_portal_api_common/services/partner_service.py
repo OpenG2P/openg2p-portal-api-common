@@ -120,14 +120,17 @@ class PartnerService(BaseService):
             if key in partner_fields and data.get(key, None):
                 updated_fields[key] = value
             # TODO: handle the name change
-            # name=self.create_partner_process_name(data["family_name"],data["given_name"],data["addl_name"])
+            # name=self.create_partner_process_name(data["family_name"],
+            # data["given_name"],data["addl_name"])
         if updated_fields:
             set_clause = ", ".join(
                 [f"{key} = '{value}'" for key, value in updated_fields.items()]
             )
             await session.execute(
                 text(
-                    f"UPDATE {PartnerORM.__tablename__} SET {set_clause} WHERE id='{partner_id}'"
+                    f"UPDATE {PartnerORM.__tablename__} "
+                    f"SET {set_clause} "
+                    f"WHERE id='{partner_id}'"
                 )
             )
             await session.commit()

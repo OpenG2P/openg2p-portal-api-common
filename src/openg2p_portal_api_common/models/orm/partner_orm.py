@@ -42,8 +42,6 @@ class PartnerORM(BaseORMModelWithId):
     is_group: Mapped[bool] = mapped_column(Boolean(), default=False)
     active: Mapped[bool] = mapped_column(Boolean(), default=True)
 
-    
-
     @classmethod
     async def get_partner_data(cls, id: int):
         async_session_maker = async_sessionmaker(dbengine.get())
@@ -59,7 +57,8 @@ class PartnerORM(BaseORMModelWithId):
         async with async_session_maker() as session:
             result = await session.execute(
                 text(
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = :tbl_name"
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                    "WHERE TABLE_NAME = :tbl_name"
                 ),
                 params={"tbl_name": cls.__tablename__},
             )

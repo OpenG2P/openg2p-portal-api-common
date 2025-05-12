@@ -20,8 +20,3 @@ class FormService(BaseService):
                 return forms
             except Exception as e:
                 handle_exception(e, "Error fetching forms")
-
-
-     
-
-       

@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import Depends
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.errors.http_exceptions import (
-    BadRequestError,
     UnauthorizedError,
 )
 
@@ -17,9 +16,7 @@ _config = Settings.get_config()
 
 
 class FormController(BaseController):
-   
     def __init__(self, **kwargs):
-       
         super().__init__(**kwargs)
         self._form_service = FormService.get_component()
 
@@ -39,15 +36,12 @@ class FormController(BaseController):
             self._form_service = FormService.get_component()
         return self._form_service
 
-
     async def get_all_form(
-        self,auth: Annotated[AuthCredentials, Depends(JwtBearerAuth())],
+        self,
+        auth: Annotated[AuthCredentials, Depends(JwtBearerAuth())],
     ):
-        
         if not auth.partner_id:
             raise UnauthorizedError(
                 message="Unauthorized. Partner Not Found in Registry."
             )
         return await self.form_service.list_all_form()
-
-    
