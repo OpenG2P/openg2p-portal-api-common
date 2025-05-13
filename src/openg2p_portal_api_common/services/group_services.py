@@ -1,9 +1,10 @@
 from typing import List, Optional
-
+from datetime import date
+from fastapi.responses import JSONResponse
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 from ..models.orm.reg_id_orm import RegIDORM, RegIDTypeORM
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from ..models.group import GroupDetails, GroupMember, GroupRegId
@@ -20,16 +21,20 @@ class GroupService(BaseService):
 
     async def create_group(self, group_details: GroupDetails) -> GroupDetails:
         async with self.async_session_maker() as session:
+            # group_kind means the type of group, e.g., family, household, etc.
+            group_kind_id = await G2PGroupKindORM.get_group_kind_id_by_name(
+                group_details.group_kind
+            )
             new_group = PartnerORM(
                 name=group_details.name,
                 email=group_details.email,
                 phone=group_details.phone,
-                registration_date=group_details.registration_date,
                 address=group_details.address,
-                company_id=group_details.company_id,
-                kind=group_details.kind,
-                is_registrant=group_details.is_registrant,
-                is_group=group_details.is_group,
+                kind=group_kind_id,
+                company_id=1,
+                is_registrant=True,
+                is_group=True,
+                registration_date=date.today(),
             )
             session.add(new_group)
             await session.flush()
@@ -50,48 +55,6 @@ class GroupService(BaseService):
 
         return await self.get_group_by_id(new_group.id)
 
-    async def update_group(
-        self, update_details: GroupDetails, group_id: int
-    ) -> Optional[GroupDetails]:
-        async with self.async_session_maker() as session:
-            group = await session.get(PartnerORM, group_id)
-            if not group:
-                raise ValueError(f"Group with ID {group_id} not found.")
-
-            # Update group fields
-            for field in [
-                "name",
-                "email",
-                "phone",
-                "kind",
-                "registration_date",
-                "address",
-                "is_group",
-            ]:
-                setattr(group, field, getattr(update_details, field))
-
-            # Remove and update registration IDs
-            await session.execute(
-                delete(RegIDORM).where(RegIDORM.partner_id == group_id)
-            )
-            if update_details.reg_ids:
-                session.add_all(
-                    [
-                        RegIDORM(
-                            partner_id=group.id,
-                            id_type=reg_id.id_type,
-                            value=reg_id.value,
-                            expiry_date=reg_id.expiry_date,
-                        )
-                        for reg_id in update_details.reg_ids
-                    ]
-                )
-
-            await session.commit()
-            await session.refresh(group)
-
-            return await self.get_group_by_id(group.id)
-
     async def get_group_by_id(self, group_id: int) -> Optional[GroupDetails]:
         async with self.async_session_maker() as session:
             group = await session.get(PartnerORM, group_id)
@@ -101,43 +64,69 @@ class GroupService(BaseService):
             reg_ids = await self.get_group_reg_ids(group_id, session)
             group_kind = await G2PGroupKindORM.get_group_kind_name(group.kind)
             return GroupDetails(
-                id=group.id,
                 name=group.name,
                 email=group.email,
                 phone=group.phone,
-                registration_date=group.registration_date,
                 address=group.address,
-                kind=group.kind,
                 group_kind=group_kind,
-                is_registrant=group.is_registrant,
-                is_group=group.is_group,
+                registration_date=group.registration_date,
                 reg_ids=reg_ids,
             )
 
-    async def add_member_to_group(
-        self, group_id: int, member: GroupMember
-    ) -> Optional[GroupMember]:
+    async def add_member_to_group(self, group_id: int, member: GroupMember):
         async with self.async_session_maker() as session:
             group = await session.get(PartnerORM, group_id)
             if not group:
                 return None
 
-            # Check if the member already exists
             existing_members = await self.get_group_members(group_id, session)
+
+            # Pre-check: does the new member request "head" membership?
+            check_head_conflict = (
+                member.membership_kinds and "Head" in member.membership_kinds
+            )
+
             for existing_member in existing_members:
                 if existing_member.name == member.name:
-                    return None
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "success": False,
+                            "message": [
+                                "A member with this name already exists in the group."
+                            ],
+                        },
+                    )
 
-            # Add the member to the group
+                if check_head_conflict:
+                    existing_kinds = await self.get_member_membership_kinds(
+                        existing_member.id
+                    )
+
+                    if "Head" in existing_kinds:
+                        return JSONResponse(
+                            status_code=400,
+                            content={
+                                "success": False,
+                                "message": [
+                                    "Head role is already assigned to another member."
+                                    "Please remove the"
+                                    "'head' role from the existing member"
+                                    "before assigning it to a new member."
+                                ],
+                            },
+                        )
+
             new_member = PartnerORM(
                 name=member.name,
                 email=member.email,
                 phone=member.phone,
                 birthdate=member.birthdate,
                 gender=member.gender,
-                company_id=member.company_id,
-                is_registrant=member.is_registrant,
-                is_group=member.is_group,
+                company_id=1,
+                is_registrant=True,
+                is_group=False,
+                registration_date=date.today(),
             )
             session.add(new_member)
             await session.flush()
@@ -168,15 +157,11 @@ class GroupService(BaseService):
             await session.refresh(new_member)
 
             return GroupMember(
-                id=new_member.id,
                 name=new_member.name,
                 email=new_member.email,
                 phone=new_member.phone,
                 birthdate=new_member.birthdate,
                 gender=new_member.gender,
-                company_id=new_member.company_id,
-                is_registrant=new_member.is_registrant,
-                is_group=new_member.is_group,
                 membership_kinds=await self.get_member_membership_kinds(new_member.id),
             )
 
@@ -209,19 +194,7 @@ class GroupService(BaseService):
         for membership in group_membership_records:
             individual_record = await session.get(PartnerORM, membership.individual)
             if individual_record:
-                group_members.append(
-                    GroupMember(
-                        id=individual_record.id,
-                        name=individual_record.name,
-                        email=individual_record.email,
-                        phone=individual_record.phone,
-                        birthdate=individual_record.birthdate.isoformat(),
-                        gender=individual_record.gender,
-                        company_id=individual_record.company_id,
-                        is_registrant=individual_record.is_registrant,
-                        is_group=individual_record.is_group,
-                    )
-                )
+                group_members.append(individual_record)
         return group_members
 
     async def get_member_membership_kinds(self, member_id: int) -> list[str]:
