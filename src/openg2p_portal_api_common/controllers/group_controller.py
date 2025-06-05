@@ -5,9 +5,13 @@ from openg2p_fastapi_common.errors.http_exceptions import UnauthorizedError
 from openg2p_fastapi_auth.controllers.auth_controller import AuthController
 from ..dependencies import JwtBearerAuth
 from ..models.credentials import AuthCredentials
+from ..config import Settings
 
 from ..models.group import GroupDetails, GroupMember
 from ..services.group_services import GroupService
+
+
+_config = Settings.get_config()
 
 
 class GroupController(AuthController):
@@ -16,7 +20,7 @@ class GroupController(AuthController):
         self._group_service = GroupService.get_component()
 
         self.router.prefix = "/portal"
-        self.router.tags = ["portal"]
+        self.router.tags = ["portal common"]
 
         self.router.add_api_route(
             "/group",

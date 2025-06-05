@@ -10,6 +10,7 @@ class GroupMember(BaseModel):
     email: Optional[str]
     phone: Optional[str]
     birthdate: Optional[date]
+    birth_place: Optional[str]
     gender: Optional[str]
     membership_kinds: Optional[List[str]] = Field(default_factory=list)
 

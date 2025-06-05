@@ -21,7 +21,7 @@ class FormController(BaseController):
         self._form_service = FormService.get_component()
 
         self.router.prefix = "/portal"
-        self.router.tags = ["portal"]
+        self.router.tags = ["portal common"]
 
         self.router.add_api_route(
             "/forms",

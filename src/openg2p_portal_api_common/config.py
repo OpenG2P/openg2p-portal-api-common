@@ -10,7 +10,7 @@ from . import __version__
 
 class Settings(AuthSettings, Settings):
     model_config = SettingsConfigDict(
-        env_prefix="portal_", env_file=".env", extra="allow"
+        env_prefix="portal_common_", env_file=".env", extra="allow"
     )
 
     openapi_title: str = "OpenG2P Portal API Common"

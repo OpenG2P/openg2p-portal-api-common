@@ -117,11 +117,32 @@ class GroupService(BaseService):
                             },
                         )
 
+            # Extract given,addl and family name
+            name = member.name.split()
+
+            given_name = None
+            addl_name = None
+            family_name = None
+
+            if len(name) == 1:
+                given_name = name[0]
+            elif len(name) == 2:
+                given_name = name[0]
+                family_name = name[1]
+            elif len(name) >= 3:
+                given_name = name[0]
+                addl_name = " ".join(name[1:-1])
+                family_name = name[-1]
+
             new_member = PartnerORM(
                 name=member.name,
+                given_name=given_name,
+                addl_name=addl_name,
+                family_name=family_name,
                 email=member.email,
                 phone=member.phone,
                 birthdate=member.birthdate,
+                birth_place=member.birth_place,
                 gender=member.gender,
                 company_id=1,
                 is_registrant=True,
@@ -131,7 +152,7 @@ class GroupService(BaseService):
             session.add(new_member)
             await session.flush()
 
-            # Add the member to the group membership
+            # Create a group membership record linking the new member to the group.
             group_membership = G2PGroupMembershipORM(
                 group=group.id,
                 individual=new_member.id,
@@ -161,6 +182,7 @@ class GroupService(BaseService):
                 email=new_member.email,
                 phone=new_member.phone,
                 birthdate=new_member.birthdate,
+                birth_place=new_member.birth_place,
                 gender=new_member.gender,
                 membership_kinds=await self.get_member_membership_kinds(new_member.id),
             )
