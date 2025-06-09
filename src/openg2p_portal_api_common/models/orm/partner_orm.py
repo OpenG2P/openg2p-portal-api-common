@@ -70,6 +70,13 @@ class PartnerORM(BaseORMModelWithId):
         back_populates="partner",
     )
 
+    supporting_documents_ids = relationship(
+        "DocumentFileORM",
+        foreign_keys="[DocumentFileORM.registrant_id]",
+        back_populates="registrant",
+        cascade="all, delete-orphan",
+    )
+
     @classmethod
     async def get_partner_data(cls, id: int):
         async_session_maker = async_sessionmaker(dbengine.get())

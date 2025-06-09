@@ -47,7 +47,7 @@ class DocumentFileController(BaseController):
             )
 
         try:
-            document = await self.file_service.get_document_by_id(document_id)
+            document = await self.file_service.get_document_by_id(document_id, auth.partner_id)
             return document
         except Exception:
             raise BadRequestError(message="Failed to retrieve document by ID") from None

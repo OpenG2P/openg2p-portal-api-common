@@ -31,3 +31,11 @@ class DocumentFileORM(BaseORMModel):
         back_populates="documents",
         foreign_keys=[company_id],
     )
+
+    registrant_id: Mapped[int] = mapped_column(ForeignKey("res_partner.id"))
+
+    registrant = relationship(
+        "PartnerORM",
+        foreign_keys=[registrant_id],
+        back_populates="supporting_documents_ids",
+    )

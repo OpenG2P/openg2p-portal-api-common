@@ -29,9 +29,8 @@ class DocumentFileService(BaseService):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.async_session_maker = async_sessionmaker(dbengine.get())
-        # self.membership_service = MembershipService.get_component()
 
-    async def get_document_by_id(self, document_id: int):
+    async def get_document_by_id(self, document_id: int, partner_id: int):
         """
         Retrieve a document from the database by its ID.
         """
@@ -44,6 +43,9 @@ class DocumentFileService(BaseService):
 
                 if not document:
                     raise BadRequestError(message="Document not found") from None
+                
+                if document.registrant_id != partner_id:
+                    raise BadRequestError(message="Access denied: You do not own this document.")
 
                 return DocumentFile.from_orm(document)
             except SQLAlchemyError as e:
