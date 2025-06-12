@@ -17,9 +17,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .reg_id_orm import RegIDORM
 
+<<<<<<< HEAD
 from ..orm.g2p_group_kind_orm import G2PGroupKindORM
 from ..orm.g2p_group_membership_orm import G2PGroupMembershipORM
 from ..orm.document_file_orm import DocumentFileORM
+=======
+>>>>>>> upstream/develop
 
 class PartnerORM(BaseORMModelWithId):
     __tablename__ = "res_partner"
@@ -43,6 +46,7 @@ class PartnerORM(BaseORMModelWithId):
     type: Mapped[str] = mapped_column(String(), default="contact")
     is_registrant: Mapped[bool] = mapped_column(Boolean(), default=True)
     is_group: Mapped[bool] = mapped_column(Boolean(), default=False)
+<<<<<<< HEAD
     active: Mapped[bool] = mapped_column(Boolean(), default=True)
 
     kind: Mapped[int] = mapped_column(ForeignKey("g2p_group_kind.id"), nullable=True)
@@ -76,6 +80,8 @@ class PartnerORM(BaseORMModelWithId):
         back_populates="registrant",
         cascade="all, delete-orphan",
     )
+=======
+>>>>>>> upstream/develop
 
     @classmethod
     async def get_partner_data(cls, id: int):
@@ -92,8 +98,12 @@ class PartnerORM(BaseORMModelWithId):
         async with async_session_maker() as session:
             result = await session.execute(
                 text(
+<<<<<<< HEAD
                     "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
                     "WHERE TABLE_NAME = :tbl_name"
+=======
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = :tbl_name"
+>>>>>>> upstream/develop
                 ),
                 params={"tbl_name": cls.__tablename__},
             )

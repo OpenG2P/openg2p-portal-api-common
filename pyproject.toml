@@ -18,12 +18,9 @@ classifiers = [
 dependencies = [
   "openg2p-fastapi-common",
   "openg2p-fastapi-auth",
+  "boto3",
+  "python-slugify>=8.0.0",
 ]
-
-# Optional dependencies (commented out)
-# "boto3"
-# "python-slugify>=8.0.0"
-
 dynamic = ["version"]
 
 [project.urls]

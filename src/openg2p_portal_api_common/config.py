@@ -10,12 +10,12 @@ from . import __version__
 
 class Settings(AuthSettings, Settings):
     model_config = SettingsConfigDict(
-        env_prefix="portal_", env_file=".env", extra="allow"
+        env_prefix="portal_common_", env_file=".env", extra="allow"
     )
 
     openapi_title: str = "OpenG2P Portal API Common"
     openapi_description: str = """
-    This Module Implements Common API For OpenG2P Portals.
+    This module implements OpenG2P Portal Common APIs.
 
     ***********************************
     Further details goes here
@@ -32,3 +32,6 @@ class Settings(AuthSettings, Settings):
     auth_api_update_group_by_id: ApiAuthSettings = ApiAuthSettings(enabled=True)
     auth_api_member_addition: ApiAuthSettings = ApiAuthSettings(enabled=True)
     auth_api_get_document_by_id: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    registrant_draft_mode_enabled: bool = True
+
+    auth_api_update_profile: ApiAuthSettings = ApiAuthSettings(enabled=True)

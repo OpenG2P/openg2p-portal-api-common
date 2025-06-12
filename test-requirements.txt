@@ -1,4 +1,4 @@
-# pytest-cov
-# pytest-asyncio
-# pytest
-# pytest-mock
+pytest-cov
+pytest-asyncio
+pytest
+pytest-mock

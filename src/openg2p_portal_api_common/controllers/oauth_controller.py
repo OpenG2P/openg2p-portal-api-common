@@ -24,8 +24,7 @@ class OAuthController(OAuthController):
 
     async def oauth_callback(self, request: Request):
         """
-        Handles the OAuth callback after a user has
-          authenticated with an OAuth provider.
+        Handles the OAuth callback after a user has authenticated with an OAuth provider.
 
         Args:
 

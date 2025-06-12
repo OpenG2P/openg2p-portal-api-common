@@ -16,6 +16,7 @@ from .services.partner_service import PartnerService
 from .services.form_service import FormService
 from .services.group_services import GroupService
 from .services.document_file_service import DocumentFileService
+from .services.partner_service import PartnerService
 
 
 class Initializer(Initializer):
@@ -26,6 +27,8 @@ class Initializer(Initializer):
         FormService()
         GroupService()
         DocumentFileService()
+        # Initialize all Services, Controllers, any utils here.
+        PartnerService()
 
         AuthController().post_init()
         OAuthController().post_init()

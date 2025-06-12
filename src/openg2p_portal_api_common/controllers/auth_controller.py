@@ -66,11 +66,9 @@ class AuthController(AuthController):
 
         Args:
 
-            auth (AuthCredentials): Authentication credentials,
-              obtained via JWT Bearer Auth.
+            auth (AuthCredentials): Authentication credentials, obtained via JWT Bearer Auth.
 
-            online (bool, optional): Indicates whether to fetch the profile online.
-            Defaults to True.
+            online (bool, optional): Indicates whether to fetch the profile online. Defaults to True.
 
         Returns:
 
@@ -152,8 +150,8 @@ class AuthController(AuthController):
         Args:
 
             userdata (Profile): The new data for the user's profile.
-            auth (AuthCredentials): Authentication credentials,
-            obtained via JWT Bearer Auth.
+
+            auth (AuthCredentials): Authentication credentials, obtained via JWT Bearer Auth.
 
         Returns:
 
