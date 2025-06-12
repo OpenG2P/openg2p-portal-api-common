@@ -17,3 +17,4 @@ class G2PDraftRecordORM(BaseORMModel):
     partner_data = Column(JSON)  # This will store the full partner_dict as JSON
     state = Column(String, default="draft")
     rejection_reason = Column(Text)
+    group_member_ids_json = Column(JSON)
