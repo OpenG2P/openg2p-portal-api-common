@@ -28,3 +28,4 @@ class Settings(AuthSettings, Settings):
     registrant_draft_mode_enabled: bool = True
 
     auth_api_update_profile: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_get_document_by_id: ApiAuthSettings = ApiAuthSettings(enabled=True)
