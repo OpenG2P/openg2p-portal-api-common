@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from ..orm.document_file_orm import DocumentFileORM
 from ..orm.g2p_group_kind_orm import G2PGroupKindORM
 from ..orm.g2p_group_membership_orm import G2PGroupMembershipORM
 from .reg_id_orm import RegIDORM
@@ -60,6 +61,19 @@ class PartnerORM(BaseORMModelWithId):
         "G2PGroupMembershipORM",
         foreign_keys=[G2PGroupMembershipORM.individual],
         back_populates="individual_partner",
+        cascade="all, delete-orphan",
+    )
+
+    documents: Mapped[List["DocumentFileORM"]] = relationship(
+        "DocumentFileORM",
+        foreign_keys="[DocumentFileORM.company_id]",
+        back_populates="partner",
+    )
+
+    supporting_documents_ids = relationship(
+        "DocumentFileORM",
+        foreign_keys="[DocumentFileORM.registrant_id]",
+        back_populates="registrant",
         cascade="all, delete-orphan",
     )
 
