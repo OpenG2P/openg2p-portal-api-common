@@ -28,3 +28,6 @@ class Settings(AuthSettings, Settings):
     registrant_draft_mode_enabled: bool = True
 
     auth_api_update_profile: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_create_group: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_member_addition: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_get_all_form: ApiAuthSettings = ApiAuthSettings(enabled=True)
