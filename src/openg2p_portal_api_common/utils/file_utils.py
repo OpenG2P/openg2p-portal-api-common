@@ -1,7 +1,6 @@
 import json
-import mimetypes
-import os
 
+import requests
 from openg2p_fastapi_common.errors.http_exceptions import BadRequestError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -19,7 +18,6 @@ from ..models.orm.document_tag_orm import DocumentTagORM
 # - update_slug_relative_path
 # - compute_human_file_size
 # - human_size
-# - extract_filename
 
 
 async def get_s3_backend_config(self, backend_id: int):
@@ -44,30 +42,38 @@ async def get_s3_backend_config(self, backend_id: int):
         return backend
 
 
-async def create_or_update_tag(self, tag_name: str):
-    """
-    Checks for an existing tag; updates it if found, or creates a new tag if not.
-    """
+async def create_or_update_tag(self, tag_list: list[str]) -> list[DocumentTagORM]:
+    tag_objects = []
+    tag_list = tag_list or []
+    # Remove duplicates entries
+    tag_list = list(set(tag_list))
+
     async with self.async_session_maker() as session:
         try:
-            result = await session.execute(
-                select(DocumentTagORM).where(DocumentTagORM.name == tag_name)
-            )
-            existing_tag = result.scalars().first()
+            for tag_name in tag_list:
+                if not tag_name:
+                    continue
 
-            if existing_tag:
-                existing_tag.name = tag_name
-                await session.commit()
-                await session.refresh(existing_tag)
-            else:
-                new_tag = DocumentTagORM(name=tag_name)
-                session.add(new_tag)
-                await session.commit()
-                await session.refresh(new_tag)
+                result = await session.execute(
+                    select(DocumentTagORM).where(DocumentTagORM.name == tag_name)
+                )
+                existing_tag = result.scalars().first()
+
+                if existing_tag:
+                    tag_objects.append(existing_tag)
+                else:
+                    new_tag = DocumentTagORM(name=tag_name)
+                    session.add(new_tag)
+                    await session.commit()
+                    await session.refresh(new_tag)
+                    tag_objects.append(new_tag)
+
+            return tag_objects
 
         except SQLAlchemyError as e:
             await session.rollback()
-            handle_exception(e, "Error creating or updating tag")
+            handle_exception(e, "Error creating or updating tags")
+            return []
 
 
 async def get_file_id_by_slug(self):
@@ -123,10 +129,21 @@ def human_size(size: int) -> str:
     return f"{size:.2f} TB"
 
 
-def extract_filename(document_file: DocumentFileORM):
-    """Extract filename and extension from name."""
-    if document_file.name:
-        document_file.filename, document_file.extension = os.path.splitext(
-            document_file.name
+async def virus_scan(data: bytes, filename: str, scan_url: str) -> None:
+    try:
+        response = requests.post(
+            scan_url,
+            files={"file": (filename or "uploaded_file", data)},
+            timeout=10,
         )
-        document_file.mimetype = mimetypes.guess_type(document_file.name)[0] or ""
+    except requests.RequestException as e:
+        raise BadRequestError(message=f"Virus scan failed: {str(e)}") from e
+
+    if response.status_code == 418:
+        raise BadRequestError(
+            message="Upload aborted: Virus found in the uploaded file."
+        )
+    elif response.status_code != 200:
+        raise BadRequestError(
+            message=f"Unexpected error during virus scan: HTTP {response.status_code}"
+        )

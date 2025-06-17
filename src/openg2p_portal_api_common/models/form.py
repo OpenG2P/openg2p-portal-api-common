@@ -7,8 +7,8 @@ class Form(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     form_id: Optional[int] = Field(default=None, alias="id")
-    title: Optional[str] = Field(defualt=None)
-    state: Optional[str] = Field(defualt="DRAFT")
-    active: Optional[bool] = Field(defualt=True)
-    version: Optional[int] = Field(defualt=1)
+    title: Optional[str] = Field(default=None)
+    state: Optional[str] = Field(default="DRAFT")
+    active: Optional[bool] = Field(default=True)
+    version: Optional[int] = Field(default=1)
     json_schema: Optional[str] = Field(default=None, alias="schema")
