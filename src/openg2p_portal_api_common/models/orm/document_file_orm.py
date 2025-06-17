@@ -1,6 +1,14 @@
 from openg2p_fastapi_common.models import BaseORMModel
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# Define association table for many-to-many relationship
+g2p_document_tag_storage_file_rel = Table(
+    "g2p_document_tag_storage_file_rel",
+    BaseORMModel.metadata,
+    Column("storage_file_id", ForeignKey("storage_file.id"), primary_key=True),
+    Column("g2p_document_tag_id", ForeignKey("g2p_document_tag.id"), primary_key=True),
+)
 
 
 class DocumentFileORM(BaseORMModel):
@@ -38,4 +46,10 @@ class DocumentFileORM(BaseORMModel):
         "PartnerORM",
         foreign_keys=[registrant_id],
         back_populates="supporting_documents_ids",
+    )
+
+    tags_ids = relationship(
+        "DocumentTagORM",
+        secondary=g2p_document_tag_storage_file_rel,
+        back_populates="documents",
     )
