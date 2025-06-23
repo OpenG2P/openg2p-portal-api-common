@@ -25,6 +25,7 @@ class PartnerORM(BaseORMModelWithId):
     __tablename__ = "res_partner"
 
     name: Mapped[str] = mapped_column()
+    complete_name: Mapped[str] = mapped_column()
     family_name: Mapped[str] = mapped_column()
     given_name: Mapped[str] = mapped_column()
     addl_name: Mapped[str] = mapped_column()

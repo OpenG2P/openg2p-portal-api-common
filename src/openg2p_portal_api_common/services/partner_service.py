@@ -58,6 +58,7 @@ class PartnerService(BaseService):
                 partner_dict["given_name"],
                 partner_dict["addl_name"],
             )
+            partner_dict["complete_name"] = partner_dict["name"]
             partner_dict["gender"] = self.create_partner_process_gender(
                 validation.pop("gender", "")
             )
