@@ -16,8 +16,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..orm.document_file_orm import DocumentFileORM
-from ..orm.g2p_group_kind_orm import G2PGroupKindORM
-from ..orm.g2p_group_membership_orm import G2PGroupMembershipORM
+from ..orm.group_kind_orm import G2PGroupKindORM
+from ..orm.group_membership_orm import G2PGroupMembershipORM
 from .reg_id_orm import RegIDORM
 
 

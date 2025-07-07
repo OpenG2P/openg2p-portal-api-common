@@ -11,29 +11,11 @@ _config = Settings.get_config()
 
 
 class OAuthController(OAuthController):
-    """
-    OAuthController handles OAuth authentication flows and callbacks.
-    """
-
     def __init__(self, **kwargs):
-        """
-        Initializes the OAuthController with necessary components and configurations.
-        """
         super().__init__(**kwargs)
         self.partner_service = PartnerService.get_component()
 
     async def oauth_callback(self, request: Request):
-        """
-        Handles the OAuth callback after a user has authenticated with an OAuth provider.
-
-        Args:
-
-            request (Request): The incoming request object containing the OAuth data.
-
-        Returns:
-
-            The response object after processing the OAuth callback.
-        """
         query_params = request.query_params
         state = orjson.loads(query_params.get("state", "{}"))
         auth_provider_id = state.get("p", None)

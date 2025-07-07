@@ -1,32 +1,27 @@
-from datetime import date
+from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
+
+from .group_membership import GroupMember
+from .registrant import RegistrantBase
 
 
-class GroupMember(BaseModel):
+class GroupType(Enum):
+    FAMILY = "Family"
+    HOUSEHOLD = "Household"
+
+
+class Group(RegistrantBase):
     model_config = ConfigDict(from_attributes=True)
-    name: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    birthdate: Optional[date]
-    birth_place: Optional[str]
-    gender: Optional[str]
-    membership_kinds: Optional[List[str]] = Field(default_factory=list)
+
+    name: str
+    is_group: bool = True
+    kind: Optional[GroupType] = None
+    members: Optional[List[GroupMember]]
 
 
-class GroupRegId(BaseModel):
-    id_type: Optional[int]
-    value: Optional[str]
-    expiry_date: Optional[date]
-
-
-class GroupDetails(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    name: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    registration_date: Optional[date]
-    address: Optional[str]
-    group_kind: Optional[str] = Field(default="Family")
-    reg_ids: Optional[List[GroupRegId]] = Field(default_factory=list)
+class GroupRequest(RegistrantBase):
+    name: str
+    kind: Optional[GroupType] = None
+    members: Optional[List[GroupMember]]
