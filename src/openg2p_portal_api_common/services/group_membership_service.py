@@ -23,33 +23,21 @@ _config = Settings.get_config(strict=False)
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 
-class GroupService(BaseService):
+class GroupMembershipService(BaseService):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.async_session_maker = async_sessionmaker(
             dbengine.get(), expire_on_commit=False
         )
 
-    async def get_group(self, group_details: Group) -> int:
+    async def add_member_to_group(self, group_id: int, member: GroupMember) -> int:
         if _config.registrant_draft_mode_enabled:
             handler = DraftGroupHandler(self)
         else:
             handler = DirectGroupHandler(self)
 
         async with self.async_session_maker() as session:
-            return await handler.create_group(session, group_details)
-
-    async def create_group(self, group_details: Group) -> int:
-        if _config.registrant_draft_mode_enabled:
-            handler = DraftGroupHandler(self)
-        else:
-            handler = DirectGroupHandler(self)
-
-        async with self.async_session_maker() as session:
-            return await handler.create_group(session, group_details)
-
-    async def update_group(self, group_details: Group) -> int:
-        pass
+            return await handler.add_member_to_group(session, group_id, member)
 
     def parse_full_name(
         self, full_name: str
@@ -162,10 +150,6 @@ class DraftGroupHandler:
 class DirectGroupHandler:
     def __init__(self, service: GroupService):
         self.service = service
-
-    async def get_group(self, session, group_details: Group) -> int:
-        # TODO: get the group details from individual record.
-        pass
 
     async def create_group(self, session, group_details: Group) -> int:
         group_kind_id = await G2PGroupKindORM.get_group_kind_id_by_name(

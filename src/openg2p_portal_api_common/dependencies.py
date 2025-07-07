@@ -34,6 +34,10 @@ class JwtBearerAuth(JwtBearerAuth):
             res.model_dump(), id_type_config["token_map"]
         )
 
+        # TODO: Add the draft mode enabled logic
+        # if draft_mode_enabled:
+        # pass
+
         partners = await RegIDORM.get_partner_by_reg_id(
             id_type_config["g2p_id_type"], mapped_res.get("user_id")
         )
