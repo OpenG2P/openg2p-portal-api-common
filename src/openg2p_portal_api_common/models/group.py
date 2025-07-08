@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import ConfigDict
 
-from .group_membership import GroupMember
+from .group_membership import GroupMembershipKind
 from .registrant import RegistrantBase
 
 
@@ -18,10 +18,12 @@ class Group(RegistrantBase):
     name: str
     is_group: bool = True
     kind: Optional[GroupType] = None
-    members: Optional[List[GroupMember]]
+    membership_kind: List[GroupMembershipKind] = []
 
 
-class GroupRequest(RegistrantBase):
-    name: str
-    kind: Optional[GroupType] = None
-    members: Optional[List[GroupMember]]
+class UpdateGroup(Group):
+    pass
+
+
+class GetGroup(Group):
+    id: int

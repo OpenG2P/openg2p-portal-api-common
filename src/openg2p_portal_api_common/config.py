@@ -27,5 +27,11 @@ class Settings(AuthSettings, Settings):
 
     registrant_draft_mode_enabled: bool = True
 
-    auth_api_get_individual: ApiAuthSettings = ApiAuthSettings(enabled=True)
-    auth_api_update_individual: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_get_profile: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_get_individual: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_update_individual: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_get_group: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_create_group: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_update_group: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_add_member_into_group: ApiAuthSettings = ApiAuthSettings(enabled=False)
+    auth_api_get_all_group_members: ApiAuthSettings = ApiAuthSettings(enabled=False)

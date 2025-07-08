@@ -4,7 +4,7 @@ from openg2p_fastapi_auth.controllers.oauth_controller import OAuthController
 from openg2p_fastapi_common.utils import cookie_utils
 
 from ..config import Settings
-from ..models.orm.auth_oauth_provider import AuthOauthProviderORM
+from ..models.orm.auth_oauth_provider_orm import AuthOauthProviderORM
 from ..services.partner_service import PartnerService
 
 _config = Settings.get_config()

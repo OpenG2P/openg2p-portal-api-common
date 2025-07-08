@@ -14,6 +14,7 @@ class RegIDORM(BaseORMModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     partner_id: Mapped[int] = mapped_column(ForeignKey("res_partner.id"))
     id_type: Mapped[Optional[int]] = mapped_column()
+    status: Mapped[str] = mapped_column()
     value: Mapped[str] = mapped_column()
     expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime())
 
@@ -53,6 +54,16 @@ class RegIDTypeORM(BaseORMModel):
         async_session_maker = async_sessionmaker(dbengine.get())
         async with async_session_maker() as session:
             stmt = select(cls).filter(cls.id == id_type)
+            result = await session.execute(stmt)
+
+            response = result.scalar()
+        return response
+
+    @classmethod
+    async def get_id_type_by_name(cls, id_type: str) -> Optional["RegIDTypeORM"]:
+        async_session_maker = async_sessionmaker(dbengine.get())
+        async with async_session_maker() as session:
+            stmt = select(cls).filter(cls.name == id_type.upper())
             result = await session.execute(stmt)
 
             response = result.scalar()

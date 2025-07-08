@@ -15,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..orm.document_file_orm import DocumentFileORM
+# from ..orm.document_file_orm import DocumentFileORM
 from ..orm.group_kind_orm import G2PGroupKindORM
 from ..orm.group_membership_orm import G2PGroupMembershipORM
 from .reg_id_orm import RegIDORM
@@ -64,18 +64,18 @@ class PartnerORM(BaseORMModelWithId):
         cascade="all, delete-orphan",
     )
 
-    documents: Mapped[List["DocumentFileORM"]] = relationship(
-        "DocumentFileORM",
-        foreign_keys="[DocumentFileORM.company_id]",
-        back_populates="partner",
-    )
+    # documents: Mapped[List["DocumentFileORM"]] = relationship(
+    #     "DocumentFileORM",
+    #     foreign_keys="[DocumentFileORM.company_id]",
+    #     back_populates="partner",
+    # )
 
-    supporting_documents_ids = relationship(
-        "DocumentFileORM",
-        foreign_keys="[DocumentFileORM.registrant_id]",
-        back_populates="registrant",
-        cascade="all, delete-orphan",
-    )
+    # supporting_documents_ids = relationship(
+    #     "DocumentFileORM",
+    #     foreign_keys="[DocumentFileORM.registrant_id]",
+    #     back_populates="registrant",
+    #     cascade="all, delete-orphan",
+    # )
 
     @classmethod
     async def get_partner_data(cls, id: int):
@@ -99,31 +99,6 @@ class PartnerORM(BaseORMModelWithId):
         return result.scalars().all()
 
 
-class PartnerBankORM(BaseORMModelWithId):
-    __tablename__ = "res_partner_bank"
-
-    acc_number: Mapped[str] = mapped_column()
-    partner_id: Mapped[int] = mapped_column()
-    bank_id: Mapped[int] = mapped_column()
-
-    @classmethod
-    async def get_partner_banks(cls, id: int) -> List["PartnerBankORM"]:
-        response = []
-        async_session_maker = async_sessionmaker(dbengine.get())
-        async with async_session_maker() as session:
-            stmt = select(cls).filter(cls.partner_id == id)
-            result = await session.execute(stmt)
-
-            response = list(result.scalars())
-        return response
-
-
-class BankORM(BaseORMModelWithId):
-    __tablename__ = "res_bank"
-
-    name: Mapped[int] = mapped_column()
-
-
 class PartnerPhoneNoORM(BaseORMModel):
     __tablename__ = "g2p_phone_number"
 
@@ -144,3 +119,28 @@ class PartnerPhoneNoORM(BaseORMModel):
 
             response = list(result.scalars())
         return response
+
+
+# class PartnerBankORM(BaseORMModelWithId):
+#     __tablename__ = "res_partner_bank"
+
+#     acc_number: Mapped[str] = mapped_column()
+#     partner_id: Mapped[int] = mapped_column()
+#     bank_id: Mapped[int] = mapped_column()
+
+#     @classmethod
+#     async def get_partner_banks(cls, id: int) -> List["PartnerBankORM"]:
+#         response = []
+#         async_session_maker = async_sessionmaker(dbengine.get())
+#         async with async_session_maker() as session:
+#             stmt = select(cls).filter(cls.partner_id == id)
+#             result = await session.execute(stmt)
+
+#             response = list(result.scalars())
+#         return response
+
+
+# class BankORM(BaseORMModelWithId):
+#     __tablename__ = "res_bank"
+
+#     name: Mapped[int] = mapped_column()
