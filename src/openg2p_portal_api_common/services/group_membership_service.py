@@ -5,14 +5,14 @@ from typing import List, Optional
 import orjson
 from fastapi.responses import JSONResponse
 from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.errors.http_exceptions import InternalServerError
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..config import Settings
-from ..models.group import Group
 from ..models.group_membership import GetGroupMember, GroupMember, GroupMembershipKind
-from ..models.individual import Individual
+from ..models.individual import GetIndividual, Individual
 from ..models.orm.draft_record_orm import G2PDraftRecordORM
 from ..models.orm.group_membership_kind_orm import G2PGroupMembershipKindORM
 from ..models.orm.group_membership_orm import G2PGroupMembershipORM
@@ -44,17 +44,21 @@ class GroupMembershipService(BaseService):
         async with self.async_session_maker() as session:
             return await handler.add_member_to_group(session, group_id, data)
 
-    async def get_all_group_members(
-        self, group_id: int, data: GroupMember
-    ) -> list[GetGroupMember]:
-        pass
+    async def get_all_group_members(self, group_id: int) -> list[GetGroupMember]:
+        if _config.registrant_draft_mode_enabled:
+            handler = DraftGroupMembershipHandler(self)
+        else:
+            handler = DirectGroupMembershipHandler(self)
+
+        async with self.async_session_maker() as session:
+            return await handler.get_all_group_members(session, group_id)
 
     async def validate_member_addition(
         self, group_id: int, data: GroupMember, session
     ) -> Optional[JSONResponse]:
         existing_members = await self.get_group_members(group_id, session)
         for existing_member in existing_members:
-            if existing_member.name == data.name:
+            if existing_member.given_name == data.individual.given_name:
                 return JSONResponse(
                     status_code=400,
                     content={
@@ -64,19 +68,22 @@ class GroupMembershipService(BaseService):
                         ],
                     },
                 )
-        if data.membership_kind and "Head" in data.membership_kind:
+
+        if data.membership_kind and "HEAD" in [
+            getattr(k, "value", k).upper() for k in data.membership_kind
+        ]:
             for existing_member in existing_members:
                 existing_kinds = await self.get_member_membership_kinds(
                     existing_member.id
                 )
-                if "Head" in existing_kinds:
+                if "HEAD" in [k.upper() for k in existing_kinds]:
                     return JSONResponse(
                         status_code=400,
                         content={
                             "success": False,
                             "message": [
                                 "Head role is already assigned to another member. "
-                                "Please remove the 'head' role from the existing member before assigning it to a new member."
+                                "Please remove the 'Head' role from the existing member before assigning it to a new member."
                             ],
                         },
                     )
@@ -122,7 +129,7 @@ class DraftGroupMembershipHandler:
 
     def prepare_member_partner_data(self, member: GroupMember) -> dict:
         individual = member.individual
-        return {
+        partner_data = {
             "is_group": False,
             "name": get_full_name(
                 individual.given_name, individual.addl_name, individual.family_name
@@ -130,40 +137,30 @@ class DraftGroupMembershipHandler:
             "given_name": individual.given_name,
             "addl_name": individual.addl_name,
             "family_name": individual.family_name,
-            "email": individual.email,
-            "birthdate": individual.birthdate,
-            "birth_place": individual.birth_place,
             "gender": individual.gender,
         }
 
-    def _prepare_group_partner_data(self, data: Group) -> dict:
-        partner_data = {
-            "is_group": True,
-            "name": data.name,
-            "email": data.email,
-            "address": data.address,
-        }
-
-        if data.reg_ids:
+        if individual.reg_ids:
             formatted_reg_ids = []
-            for idx, reg in enumerate(data.reg_ids):
+            for idx, reg in enumerate(individual.reg_ids):
                 reg_entry = {
                     "id_type": reg.id_type,
                     "value": reg.value,
                     "expiry_date": reg.expiry_date or False,
-                    "status": False,
+                    "status": reg.status or False,
                     "description": False,
                 }
                 formatted_reg_ids.append([0, f"virtual_reg_id_{idx}", reg_entry])
             partner_data["reg_ids"] = formatted_reg_ids
 
-        if data.phone_numbers:
+        if individual.phone_numbers:
             formatted_phones = []
-            for idx, phone in enumerate(data.phone_numbers):
+            for idx, phone in enumerate(individual.phone_numbers):
                 phone_entry = {
                     "phone_no": phone.phone_no,
                     "country_id": False,
-                    "date_collected": datetime.now().strftime("%Y-%m-%d"),
+                    "date_collected": phone.date_collected
+                    or datetime.now().strftime("%Y-%m-%d"),
                     "disabled": False,
                 }
                 formatted_phones.append([0, f"virtual_phone_id_{idx}", phone_entry])
@@ -185,34 +182,25 @@ class DraftGroupMembershipHandler:
                 },
             )
 
-        draft_member = await self._create_draft_member(session, data)
+        individual_data = await self._create_draft_member(session, data)
 
         draft_group.group_member_ids_json = draft_group.group_member_ids_json or []
-        draft_group.group_member_ids_json.append(draft_member.id)
+        draft_group.group_member_ids_json.append(individual_data.id)
 
         await session.commit()
 
-        individual_data = Individual(
-            id=draft_member.id,
-            name=draft_member.name,
-            given_name=draft_member.given_name,
-            addl_name=draft_member.addl_name,
-            family_name=draft_member.family_name,
-            email=draft_member.email,
-            birthdate=draft_member.birthdate,
-            birth_place=draft_member.birth_place,
-            gender=draft_member.gender,
-            is_group=draft_member.is_group,
-        )
-
         return GetGroupMember(
             individual=individual_data,
-            membership_kind=data.membership_kind or [],
+            # Membership kind not supported in draft and publish module
+            membership_kind=[],
         )
 
-    async def _create_draft_member(
-        self, session, data: GroupMember
-    ) -> G2PDraftRecordORM:
+    async def get_all_group_members(
+        self, session: AsyncSession, group_id: int
+    ) -> list[GetGroupMember]:
+        raise NotImplementedError("'get_all_group_members' is not implemented yet.")
+
+    async def _create_draft_member(self, session, data: GroupMember) -> GetIndividual:
         partner_data = self.prepare_member_partner_data(data)
         individual = data.individual
 
@@ -226,9 +214,6 @@ class DraftGroupMembershipHandler:
             addl_name=individual.addl_name,
             family_name=individual.family_name,
             gender=individual.gender,
-            email=individual.email,
-            birthdate=individual.birthdate,
-            birth_place=individual.birth_place,
             is_group=False,
             partner_data=orjson.dumps(partner_data).decode("utf-8"),
             state="draft",
@@ -237,7 +222,23 @@ class DraftGroupMembershipHandler:
 
         session.add(draft_member)
         await session.flush()
-        return draft_member
+
+        # Return an `Individual` schema instance
+        return GetIndividual(
+            id=draft_member.id,
+            name=draft_member.name,
+            given_name=draft_member.given_name,
+            addl_name=draft_member.addl_name,
+            family_name=draft_member.family_name,
+            email=individual.email,
+            address=individual.address,
+            birthdate=individual.birthdate,
+            birth_place=individual.birth_place,
+            gender=individual.gender,
+            is_group=False,
+            reg_ids=individual.reg_ids,
+            phone_numbers=individual.phone_numbers,
+        )
 
 
 class DirectGroupMembershipHandler:
@@ -247,59 +248,156 @@ class DirectGroupMembershipHandler:
     async def add_member_to_group(
         self, session, group_id: int, data: GroupMember
     ) -> GetGroupMember:
-        group = await session.get(PartnerORM, group_id)
-        if not group:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "status": "error",
-                    "error_code": 404,
-                    "message": f"Group not found with ID: {group_id}",
-                },
+        try:
+            group = await session.get(PartnerORM, group_id)
+            if not group:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "status": "error",
+                        "error_code": 404,
+                        "message": f"Group not found with ID: {group_id}",
+                    },
+                )
+
+            validation_result = await self.service.validate_member_addition(
+                group_id, data, session
+            )
+            if isinstance(validation_result, JSONResponse):
+                return validation_result
+
+            # check here if member already existed then donot create
+            new_member = await self._create_member(session, data)
+            await self._create_group_membership(
+                session, group_id, new_member.id, data.membership_kind
             )
 
-        validation_result = await self.service.validate_member_addition(
-            group_id, data, session
-        )
-        if isinstance(validation_result, JSONResponse):
-            return validation_result
+            # Add registration IDs and phone numbers to new member
+            reg_id_list = await self._add_registration_ids(
+                session, new_member.id, data.individual.reg_ids or []
+            )
+            phone_list = await self._add_phone_numbers(
+                session, new_member.id, data.individual.phone_numbers or []
+            )
 
-        new_member = await self._create_member(session, data)
-        await self._create_group_membership(
-            session, group_id, new_member.id, data.membership_kind
-        )
+            await session.commit()
+            await session.refresh(new_member)
 
-        # Add registration IDs and phone numbers to new member
-        reg_id_list = await self._add_registration_ids(
-            session, new_member.id, data.individual.reg_ids or []
-        )
-        phone_list = await self._add_phone_numbers(
-            session, new_member.id, data.individual.phone_numbers or []
-        )
+            individual_data = Individual(
+                id=new_member.id,
+                name=new_member.name,
+                given_name=new_member.given_name,
+                addl_name=new_member.addl_name,
+                family_name=new_member.family_name,
+                email=new_member.email,
+                address=new_member.address,
+                birthdate=new_member.birthdate,
+                birth_place=new_member.birth_place,
+                gender=new_member.gender,
+                is_group=new_member.is_group,
+                reg_ids=reg_id_list,
+                phone_numbers=phone_list,
+            )
 
-        await session.commit()
-        await session.refresh(new_member)
+            return GetGroupMember(
+                individual=individual_data,
+                membership_kind=data.membership_kind or [],
+            )
+        except Exception as e:
+            _logger.error(
+                f"Error while adding member to group {group_id}: {e}", exc_info=True
+            )
+            await session.rollback()
+            raise InternalServerError(
+                detail=f"Error while adding member to group {group_id}: {e}"
+            ) from e
 
-        individual_data = Individual(
-            id=new_member.id,
-            name=new_member.name,
-            given_name=new_member.given_name,
-            addl_name=new_member.addl_name,
-            family_name=new_member.family_name,
-            email=new_member.email,
-            address=new_member.address,
-            birthdate=new_member.birthdate,
-            birth_place=new_member.birth_place,
-            gender=new_member.gender,
-            is_group=new_member.is_group,
-            reg_ids=reg_id_list,
-            phone_numbers=phone_list,
-        )
+    async def get_all_group_members(
+        self, session: AsyncSession, group_id: int
+    ) -> list[GetGroupMember]:
+        try:
+            group_members: list[GetGroupMember] = []
 
-        return GetGroupMember(
-            individual=individual_data,
-            membership_kind=data.membership_kind or [],
-        )
+            membership_records = await session.execute(
+                select(G2PGroupMembershipORM).where(
+                    G2PGroupMembershipORM.group == group_id
+                )
+            )
+
+            for membership in membership_records.scalars().all():
+                individual_record = await session.get(PartnerORM, membership.individual)
+                if not individual_record:
+                    continue
+
+                # Fetch membership kinds
+                await session.refresh(membership, ["group_membership_kind"])
+                membership_kinds = [
+                    GroupMembershipKind(kind.name)
+                    for kind in membership.group_membership_kind or []
+                ]
+
+                # Fetch reg_ids
+                reg_id_records = await session.execute(
+                    select(RegIDORM).where(RegIDORM.partner_id == individual_record.id)
+                )
+                reg_ids = []
+                for reg in reg_id_records.scalars().all():
+                    reg_type = await session.get(RegIDTypeORM, reg.id_type)
+                    reg_ids.append(
+                        RegistrantID(
+                            id_type=reg_type.name if reg_type else "Unknown",
+                            value=reg.value,
+                            status=reg.status,
+                            expiry_date=reg.expiry_date,
+                        )
+                    )
+
+                # Fetch phone numbers
+                phone_number_records = await session.execute(
+                    select(PartnerPhoneNoORM).where(
+                        PartnerPhoneNoORM.partner_id == individual_record.id
+                    )
+                )
+                phone_numbers = [
+                    PhoneNumber(
+                        phone_no=phone.phone_no,
+                        date_collected=phone.date_collected,
+                    )
+                    for phone in phone_number_records.scalars().all()
+                ]
+
+                individual_data = Individual(
+                    id=individual_record.id,
+                    name=individual_record.name,
+                    given_name=individual_record.given_name,
+                    addl_name=individual_record.addl_name,
+                    family_name=individual_record.family_name,
+                    email=individual_record.email,
+                    address=individual_record.address,
+                    birthdate=individual_record.birthdate,
+                    birth_place=individual_record.birth_place,
+                    gender=individual_record.gender,
+                    is_group=individual_record.is_group,
+                    reg_ids=reg_ids,
+                    phone_numbers=phone_numbers,
+                )
+
+                group_members.append(
+                    GetGroupMember(
+                        individual=individual_data,
+                        membership_kind=membership_kinds,
+                    )
+                )
+
+            return group_members
+
+        except Exception as e:
+            _logger.error(
+                f"Failed to get members for group {group_id}: {e}", exc_info=True
+            )
+            raise InternalServerError(
+                message=f"Could not fetch group members: {str(e)}"
+            ) from e
 
     async def _create_member(self, session, data: GroupMember) -> PartnerORM:
         new_member = PartnerORM(

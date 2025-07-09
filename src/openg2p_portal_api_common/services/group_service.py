@@ -12,14 +12,17 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..config import Settings
 from ..models.group import GetGroup, Group, UpdateGroup
-from ..models.group_membership import GroupMember, GroupMembershipKind
+from ..models.group_membership import GroupMembershipKind
 from ..models.orm.draft_record_orm import G2PDraftRecordORM
 from ..models.orm.group_kind_orm import G2PGroupKindORM
 from ..models.orm.group_membership_kind_orm import G2PGroupMembershipKindORM
 from ..models.orm.group_membership_orm import G2PGroupMembershipORM
 from ..models.orm.partner_orm import PartnerORM, PartnerPhoneNoORM
 from ..models.orm.reg_id_orm import RegIDORM, RegIDTypeORM
-from ..services.group_membership_service import GroupMembershipService
+from ..services.group_membership_service import (
+    DirectGroupMembershipHandler,
+    GroupMembershipService,
+)
 from ..services.individual_service import IndividualService
 from ..utils.registrant_utils import parse_full_name
 
@@ -114,22 +117,15 @@ class DraftGroupHandler:
 
             draft_group = G2PDraftRecordORM(
                 name=data.name,
-                phone=data.phone,
                 partner_data=orjson.dumps(partner_data).decode("utf-8"),
                 is_group=True,
                 state="draft",
                 rejection_reason="",
             )
             session.add(draft_group)
-            await session.commit()
 
-            # Optional: Add current individual as group member
-            # individual_record = await IndividualService().get_individual_details(individual_id)
-            # group_member = GroupMember(
-            #     individual=individual_record,
-            #     membership_kind=data.membership_kind,
-            # )
-            # await GroupMembershipService().add_member_to_group(draft_group.id, group_member)
+            # TODO: Add current individual as group member
+            await session.commit()
 
             _logger.info(f"Group draft created with ID: {draft_group.id}")
 
@@ -214,12 +210,12 @@ class DraftGroupHandler:
 
             if updated_fields:
                 draft_record.partner_data = orjson.dumps(partner_data).decode("utf-8")
-                await session.commit()
                 _logger.info(
                     f"Draft group {group_id} updated with changes: {list(updated_fields.keys())}"
                 )
-            else:
-                _logger.info(f" No changes made to draft group {group_id}")
+
+            # TODO: update member and its membership kind
+            await session.commit()
 
             return GetGroup(
                 id=draft_record.id,
@@ -275,114 +271,132 @@ class DirectGroupHandler:
             ) from e
 
     async def create_group(self, session, individual_id, data: Group) -> GetGroup:
-        group_kind_id = await G2PGroupKindORM.get_group_kind_id_by_name(
-            data.kind.value if data.kind else None
-        )
+        try:
+            group_kind_id = await G2PGroupKindORM.get_group_kind_id_by_name(
+                data.kind.value if data.kind else None
+            )
 
-        new_group = PartnerORM(
-            name=data.name,
-            email=data.email,
-            address=data.address,
-            kind=group_kind_id,
-            company_id=1,
-            is_registrant=True,
-            is_group=True,
-            registration_date=date.today(),
-        )
-        session.add(new_group)
-        await session.flush()
+            new_group = PartnerORM(
+                name=data.name,
+                email=data.email,
+                address=data.address,
+                kind=group_kind_id,
+                company_id=1,
+                is_registrant=True,
+                is_group=True,
+                registration_date=date.today(),
+            )
+            session.add(new_group)
+            await session.flush()
 
-        if data.reg_ids:
-            await self._add_registration_ids(session, new_group.id, data.reg_ids)
-        if data.phone_numbers:
-            await self.add_phone_numbers(session, new_group.id, data.phone_numbers)
+            if data.reg_ids:
+                await self._add_registration_ids(session, new_group.id, data.reg_ids)
+            if data.phone_numbers:
+                await self.add_phone_numbers(session, new_group.id, data.phone_numbers)
 
-        await session.commit()
-        await session.refresh(new_group)
+            await session.refresh(new_group)
 
-        # Add current member to this group
-        individual_record = await IndividualService().get_individual(individual_id)
-        group_member = GroupMember(
-            individual=individual_record, membership_kind=data.membership_kind
-        )
-        await GroupMembershipService().add_member_to_group(new_group.id, group_member)
+            # Add current member to this group
+            individual_record = await IndividualService().get_individual(individual_id)
 
-        return await self.get_group_by_group_id(session, new_group.id)
+            await DirectGroupMembershipHandler(
+                GroupMembershipService()
+            )._create_group_membership(
+                session, new_group.id, individual_record.id, data.membership_kind
+            )
+            await session.commit()
+
+            return await self.get_group_by_group_id(session, new_group.id)
+
+        except Exception as e:
+            _logger.error(
+                f"Failed to create group for individual {individual_id}: {e}",
+                exc_info=True,
+            )
+            await session.rollback()
+            raise InternalServerError(message=f"Could not create a group: {e}") from e
 
     async def update_group(self, session, group_id: int, data: UpdateGroup) -> GetGroup:
-        group = await session.get(PartnerORM, group_id)
+        try:
+            group = await session.get(PartnerORM, group_id)
 
-        if not group or not group.is_group:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "status": "error",
-                    "error_code": 404,
-                    "message": "Group not found.",
-                },
-            )
-
-        # Update group kind if provided
-        group_kind_id = None
-        if data.kind:
-            group_kind_id = await G2PGroupKindORM.get_group_kind_id_by_name(
-                data.kind.value
-            )
-
-        # Update group basic fields
-        group.name = data.name or group.name
-        group.email = data.email or group.email
-        group.address = data.address or group.address
-        group.kind = group_kind_id or group.kind
-        group.registration_date = group.registration_date or date.today()
-
-        await session.flush()
-
-        # update or insert reg_ids
-        if data.reg_ids:
-            # Get existing reg_ids for the group
-            existing_reg_ids_result = await session.execute(
-                select(RegIDORM).where(RegIDORM.partner_id == group_id)
-            )
-            existing_reg_ids = {
-                reg.id_type: reg for reg in existing_reg_ids_result.scalars().all()
-            }
-
-            to_add = []
-
-            for new_reg in data.reg_ids:
-                reg_type = await RegIDTypeORM.get_id_type_by_name(new_reg.id_type)
-                if not reg_type:
-                    raise ValueError(f"Invalid ID type: {new_reg.id_type}")
-                reg_type_id = reg_type.id
-
-                if reg_type_id in existing_reg_ids:
-                    reg_obj = existing_reg_ids[reg_type_id]
-                    reg_obj.value = new_reg.value
-                    reg_obj.status = new_reg.status
-                    reg_obj.expiry_date = new_reg.expiry_date
-                else:
-                    to_add.append(new_reg)
-
-            if to_add:
-                await self._add_registration_ids(session, group_id, to_add)
-
-        if data.phone_numbers is not None:
-            # Remove existing phone numbers
-            await session.execute(
-                delete(PartnerPhoneNoORM).where(
-                    PartnerPhoneNoORM.partner_id == group_id
+            if not group or not group.is_group:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "status": "error",
+                        "error_code": 404,
+                        "message": "Group not found.",
+                    },
                 )
-            )
 
-            # Add new phone numbers
-            await self.add_phone_numbers(session, group_id, data.phone_numbers)
+            # Update group kind if provided
+            group_kind_id = None
+            if data.kind:
+                group_kind_id = await G2PGroupKindORM.get_group_kind_id_by_name(
+                    data.kind.value
+                )
 
-        # TODO Handel member update also here
-        await session.commit()
-        await session.refresh(group)
+            # Update group basic fields
+            group.name = data.name or group.name
+            group.email = data.email or group.email
+            group.address = data.address or group.address
+            group.kind = group_kind_id or group.kind
+            group.registration_date = group.registration_date or date.today()
 
-        return await self.get_group_by_group_id(session, group_id)
+            await session.flush()
+
+            # update or insert reg_ids
+            if data.reg_ids:
+                # Get existing reg_ids for the group
+                existing_reg_ids_result = await session.execute(
+                    select(RegIDORM).where(RegIDORM.partner_id == group_id)
+                )
+                existing_reg_ids = {
+                    reg.id_type: reg for reg in existing_reg_ids_result.scalars().all()
+                }
+
+                to_add = []
+
+                for new_reg in data.reg_ids:
+                    reg_type = await RegIDTypeORM.get_id_type_by_name(new_reg.id_type)
+                    if not reg_type:
+                        raise ValueError(f"Invalid ID type: {new_reg.id_type}")
+                    reg_type_id = reg_type.id
+
+                    if reg_type_id in existing_reg_ids:
+                        reg_obj = existing_reg_ids[reg_type_id]
+                        reg_obj.value = new_reg.value
+                        reg_obj.status = new_reg.status
+                        reg_obj.expiry_date = new_reg.expiry_date
+                    else:
+                        to_add.append(new_reg)
+
+                if to_add:
+                    await self._add_registration_ids(session, group_id, to_add)
+
+            if data.phone_numbers is not None:
+                # Remove existing phone numbers
+                await session.execute(
+                    delete(PartnerPhoneNoORM).where(
+                        PartnerPhoneNoORM.partner_id == group_id
+                    )
+                )
+
+                await self.add_phone_numbers(session, group_id, data.phone_numbers)
+
+            # TODO Handel member and membership update here
+            await session.commit()
+            await session.refresh(group)
+
+            return await self.get_group_by_group_id(session, group_id)
+
+        except Exception as e:
+            _logger.error(f"Failed to update group {group_id}: {e}", exc_info=True)
+            await session.rollback()
+            raise InternalServerError(
+                message=f"Could not update group {group_id}: {e}"
+            ) from e
 
     async def _add_registration_ids(self, session, partner_id: int, reg_ids: List):
         for reg_id in reg_ids:

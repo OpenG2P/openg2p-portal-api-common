@@ -10,6 +10,7 @@ from ..dependencies import JwtBearerAuth
 from ..models.credentials import AuthCredentials
 from ..models.group import GetGroup, Group, UpdateGroup
 from ..models.group_membership import GetGroupMember, GroupMember
+from ..services.group_membership_service import GroupMembershipService
 from ..services.group_service import GroupService
 
 _config = Settings.get_config(strict=False)
@@ -20,6 +21,7 @@ class GroupController(BaseController):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._group_service = GroupService.get_component()
+        self._group_membership_service = GroupMembershipService.get_component()
 
         self.router.tags += ["group"]
 
@@ -38,7 +40,7 @@ class GroupController(BaseController):
         self.router.add_api_route(
             "/group/{group_id}",
             self.update_group,
-            responses={200: {"model": Group}},
+            responses={200: {"model": GetGroup}},
             methods=["PUT"],
         )
         self.router.add_api_route(
@@ -50,6 +52,7 @@ class GroupController(BaseController):
         self.router.add_api_route(
             "/group/members/{group_id}",
             self.get_all_group_members,
+            responses={200: {"model": list[GetGroupMember]}},
             methods=["GET"],
         )
 
@@ -58,6 +61,12 @@ class GroupController(BaseController):
         if not self._group_service:
             self._group_service = GroupService.get_component()
         return self._group_service
+
+    @property
+    def group_membership_service(self):
+        if not self._group_membership_service:
+            self._group_membership_service = GroupMembershipService.get_component()
+        return self._group_membership_service
 
     async def get_groups(
         self,
@@ -83,7 +92,7 @@ class GroupController(BaseController):
         group_id: int,
         data: UpdateGroup,
         auth: Annotated[AuthCredentials, Depends(JwtBearerAuth())],
-    ):
+    ) -> GetGroup:
         if not auth.partner_id:
             raise UnauthorizedError("Unauthorized. Partner Not Found in Registry.")
 
@@ -98,14 +107,14 @@ class GroupController(BaseController):
         if not auth.partner_id:
             raise UnauthorizedError("Unauthorized. Partner Not Found in Registry.")
 
-        return await self.group_service.add_member_to_group(group_id, data)
+        return await self._group_membership_service.add_member_to_group(group_id, data)
 
     async def get_all_group_members(
         self,
         group_id: int,
         auth: Annotated[AuthCredentials, Depends(JwtBearerAuth())],
-    ):
+    ) -> list[GetGroupMember]:
         if not auth.partner_id:
             raise UnauthorizedError("Unauthorized. Partner Not Found in Registry.")
 
-        return await self.group_service.get_all_group_members(group_id)
+        return await self._group_membership_service.get_all_group_members(group_id)

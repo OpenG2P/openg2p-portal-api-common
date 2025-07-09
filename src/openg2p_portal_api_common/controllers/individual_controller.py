@@ -1,4 +1,4 @@
-from typing import Annotated, Union
+from typing import Annotated
 
 from fastapi import Depends
 from openg2p_fastapi_common.controller import BaseController
@@ -30,6 +30,7 @@ class IndividualController(BaseController):
         self.router.add_api_route(
             "/individual",
             self.update_individual,
+            responses={200: {"model": GetIndividual}},
             methods=["PUT"],
         )
 
@@ -53,7 +54,7 @@ class IndividualController(BaseController):
         self,
         userdata: UpdateIndividual,
         auth: Annotated[AuthCredentials, Depends(JwtBearerAuth())],
-    ) -> Union[GetIndividual, dict]:
+    ) -> GetIndividual:
         try:
             return await self.individual_service.update_individual(
                 auth.partner_id, userdata

@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from typing import Dict, Union
 
 import orjson
 from fastapi.responses import JSONResponse
@@ -44,7 +43,7 @@ class IndividualService(BaseService):
 
     async def update_individual(
         self, individual_id: int, data: UpdateIndividual
-    ) -> Union[GetIndividual, Dict]:
+    ) -> GetIndividual:
         if _config.registrant_draft_mode_enabled:
             handler = DraftIndividualHandler(self)
         else:
@@ -117,6 +116,7 @@ class DraftIndividualHandler:
         self, session: AsyncSession, individual_id: int
     ) -> GetIndividual:
         try:
+            individual_id = 16
             draft_record = await session.get(G2PDraftRecordORM, individual_id)
             if not draft_record:
                 return JSONResponse(
@@ -141,9 +141,13 @@ class DraftIndividualHandler:
                 partner_ids.append(
                     {
                         "id_type": name_obj.name,
-                        "status": reg_id_data.get("status"),
+                        "status": reg_id_data.get("status")
+                        if isinstance(reg_id_data.get("status"), str)
+                        else None,
                         "value": reg_id_data.get("value"),
-                        "expiry_date": reg_id_data.get("expiry_date"),
+                        "expiry_date": reg_id_data.get("expiry_date")
+                        if isinstance(reg_id_data.get("expiry_date"), str)
+                        else None,
                     }
                 )
 
@@ -182,17 +186,34 @@ class DraftIndividualHandler:
         self, session: AsyncSession, individual_id: int, data: UpdateIndividual
     ) -> GetIndividual:
         try:
-            draft_record = await session.get(G2PDraftRecordORM, individual_id)
+            draft_record_result = await session.execute(
+                select(G2PDraftRecordORM)
+                .where(G2PDraftRecordORM.id == individual_id)
+                .where(G2PDraftRecordORM.state == "draft")
+            )
+            draft_record = draft_record_result.scalar_one_or_none()
 
             if not draft_record:
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "status": "error",
-                        "error_code": 404,
-                        "message": f"Draft record not found for individual ID: {individual_id}",
-                    },
-                )
+                # Check if record exists but is not in draft state
+                existing_record = await session.get(G2PDraftRecordORM, individual_id)
+                if existing_record:
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "status": "error",
+                            "error_code": 400,
+                            "message": f"Record for individual ID {individual_id} is not in draft state. Current state: {existing_record.state}",
+                        },
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=404,
+                        content={
+                            "status": "error",
+                            "error_code": 404,
+                            "message": f"No record found for individual ID: {individual_id}",
+                        },
+                    )
 
             # Load existing partner_data JSON
             partner_data = orjson.loads(draft_record.partner_data)
@@ -202,7 +223,6 @@ class DraftIndividualHandler:
 
             for field in all_fields:
                 value = getattr(data, field, None)
-                print(field, value)
                 if value is not None:
                     partner_data[field] = value
                     updated_fields[field] = value
