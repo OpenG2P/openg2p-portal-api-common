@@ -21,7 +21,7 @@ class PhoneNumber(BaseModel):
 
 
 class RegistrantBase(BaseModel):
-    ids: Optional[List[RegistrantID]] = None
+    reg_ids: Optional[List[RegistrantID]] = None
     email: Optional[str] = None
     address: Optional[str] = None
     phone_numbers: Optional[List[PhoneNumber]] = None

@@ -1,17 +1,17 @@
 import logging
 from datetime import datetime
+from pydoc import text
 
 import orjson
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.errors.http_exceptions import InternalServerError
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from ..config import Settings
 from ..context import partner_fields_cache
-from ..models.orm.auth_oauth_provider import AuthOauthProviderORM
+from ..models.orm.auth_oauth_provider_orm import AuthOauthProviderORM
 from ..models.orm.draft_record_orm import G2PDraftRecordORM
 from ..models.orm.partner_orm import PartnerORM, PartnerPhoneNoORM
 from ..models.orm.reg_id_orm import RegIDORM

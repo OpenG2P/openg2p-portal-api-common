@@ -29,3 +29,8 @@ class Settings(AuthSettings, Settings):
 
     auth_api_get_individual: ApiAuthSettings = ApiAuthSettings(enabled=True)
     auth_api_update_individual: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_get_groups: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_create_group: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_update_group: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_add_member_into_group: ApiAuthSettings = ApiAuthSettings(enabled=True)
+    auth_api_get_all_group_members: ApiAuthSettings = ApiAuthSettings(enabled=True)

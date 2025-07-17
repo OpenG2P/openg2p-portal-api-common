@@ -12,7 +12,7 @@ from openg2p_fastapi_common.errors.http_exceptions import (
 )
 
 from .models.credentials import AuthCredentials
-from .models.orm.auth_oauth_provider import AuthOauthProviderORM
+from .models.orm.auth_oauth_provider_orm import AuthOauthProviderORM
 from .models.orm.reg_id_orm import RegIDORM
 
 
